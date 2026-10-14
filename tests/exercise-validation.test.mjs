@@ -37,10 +37,11 @@ test('exercise metadata passes structural and safety validation', () => {
   assert.doesNotThrow(() => validateExercise(repositoryRoot));
 });
 
-test('starter scaffold does not pass learner grading before implementation', () => {
+test('implemented application passes learner grading', () => {
   for (const name of ['step1-architecture', 'step2-data', 'step3-api', 'step4-frontend']) {
-    assert.throws(() => checks[name](repositoryRoot));
+    assert.doesNotThrow(() => checks[name](repositoryRoot), `${name} should accept the implemented application`);
   }
+  assert.doesNotThrow(() => checkFinalComposition(repositoryRoot));
 });
 
 test('completed learner fixture satisfies step 1 through final composition checks', () => {
@@ -213,15 +214,18 @@ test('workflow-level write permissions are rejected', () => {
 
 test('step one requires a completed architecture plan', () => {
   const root = copyAll();
-  assert.throws(() => checks['step1-architecture'](root), /Architecture plan must complete/);
   const architecture = path.join(root, 'docs/architecture.md');
-  fs.writeFileSync(architecture, fs.readFileSync(architecture, 'utf8').replaceAll('decision:', 'decision: keep boundaries clear').replaceAll('approach:', 'approach: implement from tests'));
+  const incomplete = fs.readFileSync(architecture, 'utf8').replaceAll(/^- (.*(?:decision|approach)):\s*.+$/gm, '- $1:');
+  fs.writeFileSync(architecture, incomplete);
+  assert.throws(() => checks['step1-architecture'](root), /Architecture plan must complete/);
+  fs.writeFileSync(architecture, incomplete.replaceAll(/^- (.*(?:decision|approach)):\s*$/gm, '- $1: Use the documented contract and preserve tier boundaries.'));
   assert.doesNotThrow(() => checks['step1-architecture'](root));
 });
 
 test('data grader rejects placeholder seed script', () => {
   const root = copyAll();
-  assert.throws(() => checks['step2-data'](root), /required validation|placeholder/);
+  write(root, 'octofit-tracker/backend/src/scripts/seed.ts', '// TODO: Learners implement the seed data');
+  assert.throws(() => checks['step2-data'](root), /placeholder/);
 });
 
 test('frontend grader requires shared API usage and visible states', () => {
